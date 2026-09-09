@@ -1,0 +1,19 @@
+# Byte-compiled / test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local runtime state and uploaded meetings — never commit.
+data/
+
+# Local secrets — only .env.example is tracked.
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
