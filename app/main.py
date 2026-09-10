@@ -36,6 +36,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from starlette.datastructures import UploadFile
@@ -66,6 +67,37 @@ def _lock_for(memo_id: str) -> asyncio.Lock:
     if lock is None:
         lock = _locks[memo_id] = asyncio.Lock()
     return lock
+
+
+# Fire-and-forget outbound webhook (config.NOTIFY_URL; empty = disabled).
+# Notifications are at-least-once: an idempotent client re-upload (same
+# memo_id, e.g. after an app-side transcript edit) produces another POST —
+# consumers should dedupe on memo_id themselves.
+_notify_tasks: set[asyncio.Task] = set()
+
+
+def schedule_notify(memo_id: str, updated: bool) -> None:
+    """Queue the outbound webhook POST; uploads never wait on it."""
+    if not config.NOTIFY_URL:
+        return
+    task = asyncio.create_task(_notify_webhook(memo_id, updated))
+    _notify_tasks.add(task)
+    task.add_done_callback(_notify_tasks.discard)
+
+
+async def _notify_webhook(memo_id: str, updated: bool) -> None:
+    payload = {"memo_id": memo_id, "updated": updated}
+    try:
+        async with httpx.AsyncClient(timeout=config.NOTIFY_TIMEOUT_S) as client:
+            r = await client.post(config.NOTIFY_URL, json=payload)
+        if r.status_code >= 400:
+            log.warning("notify %s -> HTTP %s", config.NOTIFY_URL, r.status_code)
+        else:
+            log.info("notified %s of memo %s (updated=%s)",
+                     config.NOTIFY_URL, memo_id, updated)
+    except Exception:
+        log.exception("notify to %s failed for memo %s (upload unaffected)",
+                      config.NOTIFY_URL, memo_id)
 
 
 def _err(status: int, error: str, **extra) -> JSONResponse:
@@ -201,6 +233,7 @@ async def upload(
                 store_metadata(memo_dir / "metadata.json", metadata)
                 log.info("memo %s updated in place (audio unchanged, %d bytes)",
                          memo_id, audio_bytes)
+                schedule_notify(memo_id, updated=True)
                 return JSONResponse(status_code=200,
                                     content={"ok": True, "updated": True,
                                              "meeting_id": memo_id})
@@ -216,6 +249,7 @@ async def upload(
                 json.dumps(stored_meta, ensure_ascii=False, indent=2).encode("utf-8"))
             log.info("memo %s stored: %d bytes audio.%s in %.1fs",
                      memo_id, audio_bytes, ext, time.monotonic() - started)
+            schedule_notify(memo_id, updated=False)
             return JSONResponse(status_code=201,
                                 content={"ok": True, "meeting_id": memo_id,
                                          "audio_bytes": audio_bytes})

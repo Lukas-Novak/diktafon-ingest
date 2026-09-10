@@ -9,6 +9,12 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/app/data"))
 HOST = os.environ.get("HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORT", "8378"))
 
+# Optional outbound webhook: after a memo is successfully stored or updated,
+# the service POSTs {"memo_id", "updated"} to this URL (fire-and-forget).
+# Empty (default) disables the feature.
+NOTIFY_URL = os.environ.get("DIKTAFON_INGEST_NOTIFY_URL", "")
+NOTIFY_TIMEOUT_S = 5.0
+
 # Structural size caps, so a bogus client cannot wedge the service in memory.
 # Audio itself is unbounded here — recordings can be hours long and are
 # streamed/spooled, never buffered. Bound it at the reverse proxy instead

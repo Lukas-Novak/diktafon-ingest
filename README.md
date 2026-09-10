@@ -40,6 +40,24 @@ Headers: `Authorization: Bearer <DIKTAFON_INGEST_TOKEN>`,
 
 `GET /diktafon/health` → `{"ok": true}`.
 
+## Outbound webhook (optional)
+
+Set `DIKTAFON_INGEST_NOTIFY_URL` and, after every memo that is successfully
+stored or updated, the service POSTs a small JSON notification to that URL:
+
+```json
+{"memo_id": "7d3a702d-acc1-4ba0-b914-b1c57c46d002", "updated": false}
+```
+
+- **Fire-and-forget**: uploads never wait on the webhook; a failing or slow
+  target only logs a warning, the memo is stored regardless.
+- **At-least-once**: idempotent client retries and edited-transcript
+  re-uploads each produce another POST (`updated: true`). Consumers should
+  dedupe on `memo_id`.
+- Empty (default) disables the feature entirely.
+- To authenticate the target, place any credentials in the URL itself
+  (e.g. `https://user:pass@host/path`) or behind your own reverse proxy.
+
 ## Run (Docker)
 
 ```bash
