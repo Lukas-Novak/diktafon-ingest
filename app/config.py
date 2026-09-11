@@ -14,6 +14,9 @@ PORT = int(os.environ.get("PORT", "8378"))
 # Empty (default) disables the feature.
 NOTIFY_URL = os.environ.get("DIKTAFON_INGEST_NOTIFY_URL", "")
 NOTIFY_TIMEOUT_S = 5.0
+# Optional single custom header for the webhook POST (e.g. bearer auth):
+#   DIKTAFON_INGEST_NOTIFY_HEADER="Authorization: Bearer <token>"
+NOTIFY_HEADER = os.environ.get("DIKTAFON_INGEST_NOTIFY_HEADER", "")
 
 # Structural size caps, so a bogus client cannot wedge the service in memory.
 # Audio itself is unbounded here — recordings can be hours long and are

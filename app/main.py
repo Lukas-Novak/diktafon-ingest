@@ -87,9 +87,13 @@ def schedule_notify(memo_id: str, updated: bool) -> None:
 
 async def _notify_webhook(memo_id: str, updated: bool) -> None:
     payload = {"memo_id": memo_id, "updated": updated}
+    headers = {}
+    if config.NOTIFY_HEADER and ":" in config.NOTIFY_HEADER:
+        name, _, value = config.NOTIFY_HEADER.partition(":")
+        headers[name.strip()] = value.strip()
     try:
         async with httpx.AsyncClient(timeout=config.NOTIFY_TIMEOUT_S) as client:
-            r = await client.post(config.NOTIFY_URL, json=payload)
+            r = await client.post(config.NOTIFY_URL, json=payload, headers=headers)
         if r.status_code >= 400:
             log.warning("notify %s -> HTTP %s", config.NOTIFY_URL, r.status_code)
         else:

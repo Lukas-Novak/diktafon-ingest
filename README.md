@@ -55,8 +55,10 @@ stored or updated, the service POSTs a small JSON notification to that URL:
   re-uploads each produce another POST (`updated: true`). Consumers should
   dedupe on `memo_id`.
 - Empty (default) disables the feature entirely.
-- To authenticate the target, place any credentials in the URL itself
-  (e.g. `https://user:pass@host/path`) or behind your own reverse proxy.
+- Authentication of the target: either place credentials in the URL itself
+  (e.g. `https://user:pass@host/path`) or set ONE custom header via
+  `DIKTAFON_INGEST_NOTIFY_HEADER`, e.g.
+  `DIKTAFON_INGEST_NOTIFY_HEADER="Authorization: Bearer <token>"`.
 
 ## Run (Docker)
 

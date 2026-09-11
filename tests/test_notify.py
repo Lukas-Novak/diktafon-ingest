@@ -38,14 +38,14 @@ class _RecorderClient:
     async def __aexit__(self, *exc):
         return False
 
-    async def post(self, url, json):
-        type(self).calls.append((url, json))
+    async def post(self, url, json=None, headers=None, **kwargs):
+        type(self).calls.append((url, json, headers or {}))
         return _FakeResponse()
 
 
 class _ExplodingClient(_RecorderClient):
-    async def post(self, url, json):
-        type(self).calls.append((url, json))
+    async def post(self, url, json=None, headers=None, **kwargs):
+        type(self).calls.append((url, json, headers or {}))
         raise OSError("connection refused")
 
 
@@ -88,7 +88,7 @@ def test_notify_fires_on_fresh_store(client, monkeypatch, recorder):
     r = post_memo(client, memo_id, audio, tr, meta)
     assert r.status_code == 201
     assert _wait_for_calls(1) == [
-        ("http://notify.example/hook", {"memo_id": memo_id, "updated": False}),
+        ("http://notify.example/hook", {"memo_id": memo_id, "updated": False}, {}),
     ]
 
 
@@ -102,6 +102,18 @@ def test_notify_fires_updated_true_on_redelivery(client, monkeypatch, recorder):
     assert [c[0] for c in calls] == ["http://notify.example/hook"] * 2
     assert calls[0][1] == {"memo_id": memo_id, "updated": False}
     assert calls[1][1] == {"memo_id": memo_id, "updated": True}
+
+
+def test_notify_custom_header_sent(client, monkeypatch, recorder):
+    """DIKTAFON_INGEST_NOTIFY_HEADER becomes a custom header on the webhook POST."""
+    monkeypatch.setattr(config, "NOTIFY_URL", "http://notify.example/hook")
+    monkeypatch.setattr(config, "NOTIFY_HEADER", "Authorization: Bearer seekrit")
+    memo_id, audio, tr, meta = make_memo()
+    assert post_memo(client, memo_id, audio, tr, meta).status_code == 201
+    call = _wait_for_calls(1)[0]
+    assert call[0] == "http://notify.example/hook"
+    assert call[1] == {"memo_id": memo_id, "updated": False}
+    assert call[2] == {"Authorization": "Bearer seekrit"}
 
 
 def test_notify_failure_never_blocks_the_upload(client, monkeypatch):
